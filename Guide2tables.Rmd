@@ -1,0 +1,127 @@
+---
+title: "Guide to tables"
+output:
+  html_document: default
+  html_notebook: default
+  word_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+##  libraries
+library(tidyverse)
+library(stargazer)
+library(MatchIt)
+library(Matching)
+library(htmlTable)
+```
+
+##  Introduction
+
+We want to create journal quality tables that can be 
+1) exported to excel
+2) easy modifiable within Rmarkdown (or R)
+
+There are many ways to write tables using Rmarkdown, LaTex, and html. However,
+the code for doing so can get very complicated. Furthermore, many tables require
+pre-processing (i.e. model summaries, descriptive summaries) that is labourious
+to write by hand.
+
+Therefore I have complied examples of my go-to code for writing different table
+types. I want to basically embed the R code for making tables in Rmarkdown and
+knit the document as html for copy and pasting tables into word. Most of these
+pacakges will output html or rmarkdown code directly so it is important to remember:
+
+1) Whether they are outputting html or markdown for further processing
+2) Use results = 'asis' in the r chunks to stop applying further markup on top of the html
+
+##  Reading in data and tables
+
+This just reads in the example data that I will use for making tables.
+
+```{r read and clean, results = 'hide'}
+table <- 
+  read.csv('Example data/Example RCI table.csv', 
+           check.names = F # This option stops R from replacing space with . in the col header
+           ) 
+
+data <- 
+  read.csv('Example data/Example RCI data.csv', 
+           check.names = F # This option stops R from replacing space with . in the col header
+           ) 
+
+```
+##  1) Directly output R object as formatted table (no pre-processing)
+
+This is an example where we simply load in an existing table (or dataframe). We
+then directly out the results as a html table to be written up. We use htmlTable
+but another package such as xtable or so can do the trick. htmlTable is still
+earlish in development. Other ways to do this include ktable. 
+
+see: https://cran.r-project.org/web/packages/htmlTable/vignettes/tables.html
+```{r basic stargazer table, results = 'asis'}
+col.names <- c('', 
+               'Poor', 
+               'Non-poor')
+cgroup <- c('Zones ranked by <br> distance to centre&dagger;',
+            'Cumulative proportion of:')
+
+table %>% htmlTable(
+  header = col.names,
+  cgroup = cgroup,
+  n.cgroup = c(1, 2),
+  rnames = F,  #No row names
+  caption = 'Example of table used for Duncan Index',
+  tfoot = '&dagger; Ranked from nearest to furthest'
+  )  
+```
+
+##  2a) Creating descriptive tables
+
+For more descriptive tables, we want a package to easily do the summaries AND output
+the tables we desire. We can use arsenal to preprocess the data and write it in rmarkdown. 
+
+see: https://cran.r-project.org/web/packages/arsenal/vignettes/tableby.html#pretty-rmarkdown-version-of-table
+
+```{r, results = 'asis'}
+library(arsenal)
+
+tab.obj <- tableby(~., data
+                   #weights = ,
+                   )
+labels(tab.obj) # can change these
+
+
+summary_table <- arsenal:::summary.tableby(
+  tab.obj,
+  labelTranslations = list(c.propA = 'Proportion in A',
+  c.propB = 'Proportion in B'),
+  title = 'Example',
+  pfootnote = T #show footnote for p values test
+  )
+```
+Footnote: Adding footnotes in arsenal is just using rmd below the table https://github.com/eheinzen/arsenal/issues/171
+Since arsenal seems to do alot of the work in rmarkdown
+
+##  2b) Multiple summaries / subsets
+```{r, results = 'asis'}
+dataMore <- 
+  rbind(data, data)
+dataMore$sample <- 1:2 %>% as.character
+
+
+tab.obj <- tableby(sample ~., dataMore
+                   #weights = ,
+                   )
+labels(tab.obj) # can change these
+
+
+arsenal:::summary.tableby(tab.obj,
+                          labelTranslations = list(c.propA = 'Proportion in A',
+                                                   c.propB = 'Proportion in B'),
+                          title = 'Example',
+                          pfootnote = T #show footnote for p values test
+                          ) 
+```
